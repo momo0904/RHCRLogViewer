@@ -285,6 +285,11 @@ class LogAnalyzer(QWidget):
         self.paths = []
         self.lines = []
 
+        # 字符串匹配
+        self.start_pattern = r"RHCR START!"
+        self.order_pattern = r"order info\(\d+\):"
+        self.planning_pattern = r"^(?=.*planning:)(?=.*->).*$"
+
     def update_slider_range(self,currentItem):
         if currentItem == "":
             return
@@ -333,21 +338,17 @@ class LogAnalyzer(QWidget):
 
     def load_file(self, file_path):
         # 在这里实现文件加载的逻辑
-        # 假设文件是文本文件，我们从中读取内容并更新下拉框
         print(f"加载文件: {file_path}")
         self.file_path = file_path
-
-        # 模拟从文件加载新项
         new_items = []
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
                 self.lines = file.readlines()
                 for index,line in enumerate(self.lines):
-                    if "RHCR START!" in line:
+                    if re.search(self.start_pattern, line):
                         line = line.strip()
                         new_items.append(line)
                         self.starts.append((line,index))
-
         except Exception as e:
             print(f"读取文件时出错: {e}")
             new_items = ["错误加载文件"]
@@ -368,13 +369,12 @@ class LogAnalyzer(QWidget):
         for index,line in enumerate(lines):
             if index<=start_p:
                 continue
-            if "order info(" in line:
+            if re.search(self.order_pattern,line):
                 line = line.strip()
                 new_items.append(line)
                 self.orders.append((line,index))
-            if "RHCR START!" in line:
+            if re.search(self.start_pattern,line):
                 break
-
 
         self.combo2.clear()
         self.combo2.addItems(new_items)
@@ -391,11 +391,11 @@ class LogAnalyzer(QWidget):
         for index,line in enumerate(lines):
             if index<=start_p:
                 continue
-            if "planning: " in line:
+            if re.search(self.planning_pattern,line):
                 line = line.strip()
                 new_items.append(line)
                 self.planns.append((line,index))
-            if "order info(" in line :
+            if re.search(self.order_pattern, line) :
                 break
 
         self.combo3.clear()
