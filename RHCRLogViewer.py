@@ -254,7 +254,8 @@ class LogAnalyzer(QWidget):
         self.combo3.addItems(["请选择Order时间"])
 
         # 添加标签来显示拖动条的值
-        self.value_label = QLabel("拖动条值: 0", self)
+        self.value_label = QLabel("请选择规划过程", self)
+        self.value_label.setWordWrap(True)
 
         # 初始化拖动条
         self.slider = QSlider(Qt.Horizontal, self)
@@ -308,6 +309,7 @@ class LogAnalyzer(QWidget):
                 break
 
         self.slider.setRange(0,len(self.paths)-1)
+        self.update_label()
 
     def update_label(self):
         # 更新标签显示拖动条当前值
@@ -424,7 +426,7 @@ class MainWindow(QMainWindow):
         # 设置中心部件
         self.setCentralWidget(central_widget)
 
-        self.setWindowTitle("地图和日志分析器")
+        self.setWindowTitle("日志分析器")
         self.setGeometry(100, 100, 1200, 800)
  
         self.show()
