@@ -84,7 +84,7 @@ class MapView(QGraphicsView):
                 pen = item.pen()
                 pen.setWidth(int(pen.width()*scale_factor))
                 item.setPen(pen)
-                item.setBrush(QBrush(QColor(255, 0, 0)))
+                item.setBrush(QBrush(QColor(200, 200, 200)))
                 continue
             if isinstance(item,QGraphicsRectItem):
                 self.scene().removeItem(item)
@@ -181,9 +181,9 @@ class MapApp(QWidget):
         for point in points:
             x, y = point
             # 创建一个椭圆形项来代表一个点
-            width = 3
+            width = 5
             ellipse_item = QGraphicsEllipseItem(x-width, y-width, width*2, width*2)
-            ellipse_item.setBrush(QBrush(QColor(255, 0, 0)))
+            ellipse_item.setBrush(QBrush(QColor(0, 0, 255)))
             self.scene.addItem(ellipse_item)
         """将需要绘制的线添加"""
 
@@ -214,7 +214,8 @@ class MapApp(QWidget):
                     start = int(left_list[i].replace(",",""))
                     end = int(right_list[i].replace(",",""))
                     line_pen = QPen(QColor(255, color_factor*(length -i), color_factor*(length-i)))
-                    line_pen.setWidth(8)
+                    line_width = 16
+                    line_pen.setWidth(line_width)
                     try:
                         line_item = QGraphicsLineItem(self.points_to_xy[start][0], self.points_to_xy[start][1], self.points_to_xy[end][0], self.points_to_xy[end][1])  # 起点(0,0) 到 终点(100,100)
                     except:
