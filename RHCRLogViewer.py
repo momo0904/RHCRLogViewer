@@ -174,7 +174,7 @@ class MapApp(QWidget):
             self.combo1.addItem(area["name"])
             advanced_points = area["logicalMap"]["advancedPoints"]
             for point in advanced_points:
-                self.points_to_xy[int(point["instanceName"][2:])] = (100*point["pos"]["x"],100*point["pos"]["y"])
+                self.points_to_xy[int(point["instanceName"][2:])] = (100*point["pos"]["x"],-100*point["pos"]["y"])
 
     def add_items_to_scene(self, points,points_string = ""):
         """将多个坐标点添加到场景中"""
@@ -221,6 +221,13 @@ class MapApp(QWidget):
                         print("no such line")
                     line_item.setPen(line_pen)
                     self.scene.addItem(line_item)
+                    # if i == length-1:
+                    #     x = self.points_to_xy[end][0]
+                    #     y = self.points_to_xy[end][1]
+                    #     width = 5
+                    #     ellipse_item = QGraphicsEllipseItem(x-width, y-width, width*2, width*2)
+                    #     ellipse_item.setBrush(QBrush(QColor(255, 0, 0)))
+                    #     self.scene.addItem(ellipse_item)
 
 class LogAnalyzer(QWidget):
     def __init__(self):
