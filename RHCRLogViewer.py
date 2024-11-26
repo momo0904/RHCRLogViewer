@@ -24,10 +24,14 @@ class GridAndAxesItem(QGraphicsItem):
         grid_size = 20
         for x in range(-40000, 40001, grid_size):
             painter.drawLine(x, -40000, x, 40000)  # 垂直线
-            painter.drawText(x, 10, f"{x}")  # X 轴标签
         for y in range(-40000, 40001, grid_size):
             painter.drawLine(-40000, y, 40000, y)  # 水平线
-            painter.drawText(10, y, f"{y}")  # Y 轴标签
+            painter.drawText(10, y, f"{-y/100.0}")  # Y 轴标签
+
+        painter.rotate(90)
+        for x in range(-40000, 40001, grid_size):
+            painter.drawText(10, x, f"{-x/100.0}")  # X 轴标签
+        painter.rotate(-90)
 
         # 设置坐标轴的画笔
         painter.setPen(QPen(QColor(0, 0, 0), 2, Qt.SolidLine))
