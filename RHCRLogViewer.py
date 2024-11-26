@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QComboBox, QSlider, QLabel, QFileDialog, QGraphicsRectItem
-from PyQt5.QtCore import Qt, QRectF
+from PyQt5.QtCore import Qt, QRectF,QLineF,QPointF
 from PyQt5.QtGui import QPainter, QColor
 from PyQt5.QtWidgets import QApplication, QGraphicsScene, QGraphicsView, QGraphicsEllipseItem, QMainWindow, QVBoxLayout, QWidget, QTextEdit, QHBoxLayout, QPushButton, QGraphicsLineItem, QGraphicsRectItem, QGraphicsItem,QGraphicsTextItem
 from PyQt5.QtGui import QDragEnterEvent, QDropEvent,QPen, QColor,QBrush,QFont,QKeyEvent,QMouseEvent,QPainter
@@ -24,8 +24,10 @@ class GridAndAxesItem(QGraphicsItem):
         grid_size = 20
         for x in range(-40000, 40001, grid_size):
             painter.drawLine(x, -40000, x, 40000)  # 垂直线
+            painter.drawText(x, 10, f"{x}")  # X 轴标签
         for y in range(-40000, 40001, grid_size):
             painter.drawLine(-40000, y, 40000, y)  # 水平线
+            painter.drawText(10, y, f"{y}")  # Y 轴标签
 
         # 设置坐标轴的画笔
         painter.setPen(QPen(QColor(0, 0, 0), 2, Qt.SolidLine))
@@ -35,19 +37,7 @@ class GridAndAxesItem(QGraphicsItem):
 
         # 绘制 Y 轴
         painter.drawLine(0, -40000, 0, 40000)
-
-        # 绘制箭头 (X 轴和 Y 轴的箭头)
-        arrow_size = 10
-        painter.drawLine(40000, 0, 39990, 10)
-        painter.drawLine(40000, 0, 39990, -10)
-        painter.drawLine(0, 40000, -10, 39990)
-        painter.drawLine(0, 40000, 10, 39990)
-
-        # 绘制坐标轴标签
-        painter.setPen(QPen(QColor(0, 0, 0), 1, Qt.SolidLine))
-        painter.drawText(40010, 10, "X")  # X 轴标签
-        painter.drawText(10, 40010, "Y")  # Y 轴标签
-
+        
 class MapView(QGraphicsView):
     def __init__(self, scene):
         super().__init__(scene)
@@ -78,17 +68,16 @@ class MapView(QGraphicsView):
             if isinstance(item, QGraphicsEllipseItem):
                 # 获取当前矩形尺寸并根据缩放因子调整
                 rect = item.rect()
+                center = rect.center()
                 rect.setHeight(rect.height()*scale_factor)
                 rect.setWidth(rect.width()*scale_factor)
+                rect.moveCenter(center)
                 item.setRect(rect)  # 设置新的大小
                 pen = item.pen()
                 pen.setWidth(int(pen.width()*scale_factor))
                 item.setPen(pen)
                 item.setBrush(QBrush(QColor(200, 200, 200)))
-                continue
-            if isinstance(item,QGraphicsRectItem):
-                self.scene().removeItem(item)
-            
+
 class MapApp(QWidget):
     def __init__(self):
         super().__init__()
@@ -128,6 +117,8 @@ class MapApp(QWidget):
         for item in self.scene.items():
             if isinstance(item,QGraphicsEllipseItem):
                 self.scene.removeItem(item)
+            if isinstance(item,QGraphicsTextItem):
+                self.scene.removeItem(item)
 
         self.scene.setSceneRect(-40000, -40000, 80000, 80000)  # 设置场景的大小
         for area in self.js["areas"]:
@@ -137,6 +128,11 @@ class MapApp(QWidget):
             advanced_points = area["logicalMap"]["advancedPoints"]
             for point in advanced_points:
                 points.append((100*point["pos"]["x"],-100*point["pos"]["y"]))
+                point_name = QGraphicsTextItem(point["instanceName"])
+                point_name.setFont(QFont("Arial", 8))  # 设置字体和大小
+                point_name.setDefaultTextColor(QColor(126, 126, 126))  # 设置文本颜色为黑色
+                point_name.setPos(100*point["pos"]["x"]-16,-100*point["pos"]["y"])  # 设置文本项的位置
+                self.scene.addItem(point_name)
             self.add_items_to_scene(points)
             self.cur_area = area_name
             break
@@ -185,7 +181,6 @@ class MapApp(QWidget):
             ellipse_item = QGraphicsEllipseItem(x-width, y-width, width*2, width*2)
             ellipse_item.setBrush(QBrush(QColor(0, 0, 255)))
             self.scene.addItem(ellipse_item)
-        """将需要绘制的线添加"""
 
         # 去除之前的线
         for item in self.scene.items():
@@ -217,18 +212,11 @@ class MapApp(QWidget):
                     line_width = 16
                     line_pen.setWidth(line_width)
                     try:
-                        line_item = QGraphicsLineItem(self.points_to_xy[start][0], self.points_to_xy[start][1], self.points_to_xy[end][0], self.points_to_xy[end][1])  # 起点(0,0) 到 终点(100,100)
+                        line_item1 = QGraphicsLineItem(self.points_to_xy[start][0], self.points_to_xy[start][1], self.points_to_xy[end][0], self.points_to_xy[end][1])
                     except:
                         print("no such line")
-                    line_item.setPen(line_pen)
-                    self.scene.addItem(line_item)
-                    # if i == length-1:
-                    #     x = self.points_to_xy[end][0]
-                    #     y = self.points_to_xy[end][1]
-                    #     width = 5
-                    #     ellipse_item = QGraphicsEllipseItem(x-width, y-width, width*2, width*2)
-                    #     ellipse_item.setBrush(QBrush(QColor(255, 0, 0)))
-                    #     self.scene.addItem(ellipse_item)
+                    line_item1.setPen(line_pen)
+                    self.scene.addItem(line_item1)
 
 class LogAnalyzer(QWidget):
     def __init__(self):
