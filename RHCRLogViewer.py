@@ -39,7 +39,7 @@ class MapBezierItem(QGraphicsItem):
     def paint(self, painter, option, widget=None):
         # 使用 QPainter 绘制三次贝塞尔曲线
         painter.setRenderHint(QPainter.Antialiasing)
-        pen = QPen(QColor(0, 0, 255), 2)
+        pen = QPen(QColor(0, 0, 0), 2)
         painter.setPen(pen)
 
         # 绘制三次贝塞尔曲线
@@ -47,19 +47,6 @@ class MapBezierItem(QGraphicsItem):
         path.moveTo(self.p0)
         path.cubicTo(self.p1, self.p2, self.p3)
         painter.drawPath(path)
-
-        # 绘制控制点和控制线
-        painter.setPen(QPen(Qt.red, 1, Qt.DashLine))
-        painter.drawLine(self.p0, self.p1)
-        painter.drawLine(self.p1, self.p2)
-        painter.drawLine(self.p2, self.p3)
-
-        # 绘制控制点
-        painter.setPen(QPen(Qt.green, 5))
-        painter.drawPoint(self.p0)
-        painter.drawPoint(self.p1)
-        painter.drawPoint(self.p2)
-        painter.drawPoint(self.p3)
 
 class GridAndAxesItem(QGraphicsItem):
     def __init__(self):
