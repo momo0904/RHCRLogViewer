@@ -3,9 +3,63 @@ from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QComboBox, QSlid
 from PyQt5.QtCore import Qt, QRectF,QLineF,QPointF
 from PyQt5.QtGui import QPainter, QColor
 from PyQt5.QtWidgets import QApplication, QGraphicsScene, QGraphicsView, QGraphicsEllipseItem, QMainWindow, QVBoxLayout, QWidget, QTextEdit, QHBoxLayout, QPushButton, QGraphicsLineItem, QGraphicsRectItem, QGraphicsItem,QGraphicsTextItem
-from PyQt5.QtGui import QDragEnterEvent, QDropEvent,QPen, QColor,QBrush,QFont,QKeyEvent,QMouseEvent,QPainter
+from PyQt5.QtGui import QDragEnterEvent, QDropEvent,QPen, QColor,QBrush,QFont,QKeyEvent,QMouseEvent,QPainter,QPainterPath
 import json as js
 import re
+
+class MapPointItem(QGraphicsEllipseItem):
+    pass
+
+class MapLineItem(QGraphicsLineItem):
+    pass
+
+class MapMovingLineItem(QGraphicsLineItem):
+    pass
+
+class MapBezierItem(QGraphicsItem):
+    def __init__(self, p0, p1, p2, p3):
+        super().__init__()
+        # 定义贝塞尔曲线的四个点
+        self.p0 = p0
+        self.p1 = p1
+        self.p2 = p2
+        self.p3 = p3
+
+    def boundingRect(self):
+        # 返回图形项的边界矩形
+        return self.shape().boundingRect()
+
+    def shape(self):
+        # 返回图形项的形状
+        path = QPainterPath()
+        path.moveTo(self.p0)
+        path.cubicTo(self.p1, self.p2, self.p3)
+        return path
+
+    def paint(self, painter, option, widget=None):
+        # 使用 QPainter 绘制三次贝塞尔曲线
+        painter.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(QColor(0, 0, 255), 2)
+        painter.setPen(pen)
+
+        # 绘制三次贝塞尔曲线
+        path = QPainterPath()
+        path.moveTo(self.p0)
+        path.cubicTo(self.p1, self.p2, self.p3)
+        painter.drawPath(path)
+
+        # 绘制控制点和控制线
+        painter.setPen(QPen(Qt.red, 1, Qt.DashLine))
+        painter.drawLine(self.p0, self.p1)
+        painter.drawLine(self.p1, self.p2)
+        painter.drawLine(self.p2, self.p3)
+
+        # 绘制控制点
+        painter.setPen(QPen(Qt.green, 5))
+        painter.drawPoint(self.p0)
+        painter.drawPoint(self.p1)
+        painter.drawPoint(self.p2)
+        painter.drawPoint(self.p3)
 
 class GridAndAxesItem(QGraphicsItem):
     def __init__(self):
@@ -69,7 +123,7 @@ class MapView(QGraphicsView):
         调整所有图形项的大小，确保它们在滚轮缩放时变大或变小。
         """
         for item in self.scene().items():
-            if isinstance(item, QGraphicsEllipseItem):
+            if isinstance(item, MapPointItem):
                 # 获取当前矩形尺寸并根据缩放因子调整
                 rect = item.rect()
                 center = rect.center()
@@ -77,10 +131,6 @@ class MapView(QGraphicsView):
                 rect.setWidth(rect.width()*scale_factor)
                 rect.moveCenter(center)
                 item.setRect(rect)  # 设置新的大小
-                pen = item.pen()
-                pen.setWidth(int(pen.width()*scale_factor))
-                item.setPen(pen)
-                item.setBrush(QBrush(QColor(200, 200, 200)))
 
 class MapApp(QWidget):
     def __init__(self):
@@ -115,15 +165,17 @@ class MapApp(QWidget):
 
     # 更新显示地图
     def update_map(self, area_name):
-        points = []
 
-        # 删除之前的点
+        # 删除之前的点与线
         for item in self.scene.items():
-            if isinstance(item,QGraphicsEllipseItem):
+            if isinstance(item,MapPointItem):
+                self.scene.removeItem(item)
+            if isinstance(item,MapLineItem):
+                self.scene.removeItem(item)
+            if isinstance(item,MapBezierItem):
                 self.scene.removeItem(item)
             if isinstance(item,QGraphicsTextItem):
                 self.scene.removeItem(item)
-
         self.scene.setSceneRect(-40000, -40000, 80000, 80000)  # 设置场景的大小
         for area in self.js["areas"]:
             if area["name"] !=area_name:
@@ -131,13 +183,37 @@ class MapApp(QWidget):
             print("areaname:",area["name"])
             advanced_points = area["logicalMap"]["advancedPoints"]
             for point in advanced_points:
-                points.append((100*point["pos"]["x"],-100*point["pos"]["y"]))
+                x = 100*point["pos"]["x"]
+                y = -100*point["pos"]["y"]
                 point_name = QGraphicsTextItem(point["instanceName"])
                 point_name.setFont(QFont("Arial", 8))  # 设置字体和大小
                 point_name.setDefaultTextColor(QColor(126, 126, 126))  # 设置文本颜色为黑色
-                point_name.setPos(100*point["pos"]["x"]-16,-100*point["pos"]["y"])  # 设置文本项的位置
+                point_name.setPos(x-16,y)  # 设置文本项的位置
                 self.scene.addItem(point_name)
-            self.add_items_to_scene(points)
+                # 创建一个椭圆形项来代表一个点
+                width = 5
+                ellipse_item = MapPointItem(x-width, y-width, width*2, width*2)
+                pen = ellipse_item.pen()
+                pen.setColor(QColor(123,123,123))
+                pen.setWidth(5)
+                ellipse_item.setPen(pen)
+                ellipse_item.setBrush(QBrush(QColor(200, 200, 200)))
+                self.scene.addItem(ellipse_item)
+            
+            advanced_lines = area["logicalMap"]["advancedCurves"]
+            for line in advanced_lines:
+                if line["className"] == "StraightPath":
+                    start = QPointF(line["startPos"]["pos"]["x"],line["startPos"]["pos"]["y"])
+                    end = QPointF(line["endPos"]["pos"]["x"],line["endPos"]["pos"]["y"])
+                    line_item = MapLineItem(100*start.x(),-100*start.y(),100*end.x(),-100*end.y())
+                    self.scene.addItem(line_item)
+                if line["className"] == "DegenerateBezier":
+                    start = QPointF(100*line["startPos"]["pos"]["x"],-100*line["startPos"]["pos"]["y"])
+                    end = QPointF(100*line["endPos"]["pos"]["x"],-100*line["endPos"]["pos"]["y"])
+                    con1 = QPointF(100*line["controlPos1"]["x"],-100*line["controlPos1"]["y"])
+                    con2 = QPointF(100*line["controlPos2"]["x"],-100*line["controlPos2"]["y"])
+                    line_item = MapBezierItem(start,con1,con2,end)
+                    self.scene.addItem(line_item)
             self.cur_area = area_name
             break
         self.view.adjust_item_sizes(1/self.view.transform().m11())
@@ -182,13 +258,17 @@ class MapApp(QWidget):
             x, y = point
             # 创建一个椭圆形项来代表一个点
             width = 5
-            ellipse_item = QGraphicsEllipseItem(x-width, y-width, width*2, width*2)
-            ellipse_item.setBrush(QBrush(QColor(0, 0, 255)))
+            ellipse_item = MapPointItem(x-width, y-width, width*2, width*2)
+            pen = ellipse_item.pen()
+            pen.setColor(QColor(123,123,123))
+            pen.setWidth(5)
+            ellipse_item.setPen(pen)
+            ellipse_item.setBrush(QBrush(QColor(200, 200, 200)))
             self.scene.addItem(ellipse_item)
 
         # 去除之前的线
         for item in self.scene.items():
-            if isinstance(item,QGraphicsLineItem):
+            if isinstance(item,MapMovingLineItem):
                 self.scene.removeItem(item)
 
         #地图还未加载
@@ -216,7 +296,7 @@ class MapApp(QWidget):
                     line_width = 16
                     line_pen.setWidth(line_width)
                     try:
-                        line_item1 = QGraphicsLineItem(self.points_to_xy[start][0], self.points_to_xy[start][1], self.points_to_xy[end][0], self.points_to_xy[end][1])
+                        line_item1 = MapMovingLineItem(self.points_to_xy[start][0], self.points_to_xy[start][1], self.points_to_xy[end][0], self.points_to_xy[end][1])
                     except:
                         print("no such line")
                     line_item1.setPen(line_pen)
