@@ -239,20 +239,7 @@ class MapApp(QWidget):
             for point in advanced_points:
                 self.points_to_xy[int(point["instanceName"][2:])] = (100*point["pos"]["x"],-100*point["pos"]["y"])
 
-    def add_items_to_scene(self, points,points_string = ""):
-        """将多个坐标点添加到场景中"""
-        for point in points:
-            x, y = point
-            # 创建一个椭圆形项来代表一个点
-            width = 5
-            ellipse_item = MapPointItem(x-width, y-width, width*2, width*2)
-            pen = ellipse_item.pen()
-            pen.setColor(QColor(123,123,123))
-            pen.setWidth(5)
-            ellipse_item.setPen(pen)
-            ellipse_item.setBrush(QBrush(QColor(200, 200, 200)))
-            self.scene.addItem(ellipse_item)
-
+    def add_moving_line_to_scene(self, points_string):
         # 去除之前的线
         for item in self.scene.items():
             if isinstance(item,MapMovingLineItem):
@@ -348,7 +335,7 @@ class LogAnalyzer(QWidget):
 
         # 字符串匹配
         self.start_pattern = r"RHCR START!"
-        self.order_pattern = r"order info\(\d+\):"
+        self.order_pattern = r"order info\(\d+\): os:\d+ cs:\d+current:"
         self.planning_pattern = r"^(?=.*planning:)(?=.*->).*$"
 
     def update_slider_range(self,currentItem):
@@ -471,7 +458,7 @@ class MainWindow(QMainWindow):
         map_widget = MapApp()
         log_analyzer = LogAnalyzer()
 
-        log_analyzer.slider.valueChanged.connect(lambda:map_widget.add_items_to_scene([],log_analyzer.paths[log_analyzer.slider.value()][0]))
+        log_analyzer.slider.valueChanged.connect(lambda:map_widget.add_moving_line_to_scene(log_analyzer.paths[log_analyzer.slider.value()][0]))
         # 创建垂直布局来显示两个部件
         layout = QVBoxLayout()
 
@@ -479,7 +466,7 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         central_widget.setLayout(layout)
 
-        # 将地图和日志分析器部件添加到水平布局中
+        # 将地图和日志分析器部件添加到垂直布局中
         layout.addWidget(map_widget, 4)
         layout.addWidget(log_analyzer, 1)
 
@@ -490,7 +477,6 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 1200, 800)
  
         self.show()
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
