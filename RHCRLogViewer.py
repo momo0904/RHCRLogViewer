@@ -157,12 +157,17 @@ class MapApp(QWidget):
         for item in self.scene.items():
             if isinstance(item,MapPointItem):
                 self.scene.removeItem(item)
+                continue
             if isinstance(item,MapLineItem):
                 self.scene.removeItem(item)
+                continue
             if isinstance(item,MapBezierItem):
                 self.scene.removeItem(item)
+                continue
             if isinstance(item,QGraphicsTextItem):
                 self.scene.removeItem(item)
+                continue
+            
         self.scene.setSceneRect(-40000, -40000, 80000, 80000)  # 设置场景的大小
         for area in self.js["areas"]:
             if area["name"] !=area_name:
@@ -306,7 +311,7 @@ class LogAnalyzer(QWidget):
 
         # 初始化拖动条
         self.slider = QSlider(Qt.Horizontal, self)
-        self.slider.setRange(0, 100)
+        self.slider.setRange(0, 0)
         self.slider.setValue(0)  # 默认值
 
         # 连接信号
@@ -326,7 +331,6 @@ class LogAnalyzer(QWidget):
         self.setLayout(self.layout)
 
         # 记录当前日志路径
-        self.file_path = ""
         self.starts = []
         self.orders = []
         self.planns = []
@@ -383,24 +387,25 @@ class LogAnalyzer(QWidget):
         # 获取拖入的文件路径
         urls = event.mimeData().urls()
         if urls:
-            self.load_file(urls[0].toLocalFile())
+            urls = sorted(urls)
+            for url in urls:
+                url_type = url.path()[-4:]
+                if url_type == ".log":
+                    try:
+                        with open(url.toLocalFile(), 'r', encoding='utf-8') as file:
+                            print(f"加载文件: {url.toLocalFile()}")
+                            self.lines+=file.readlines()
+                    except Exception as e:
+                        print(f"读取文件时出错: {e}")
+            self.load_file()
 
-    def load_file(self, file_path):
-        # 在这里实现文件加载的逻辑
-        print(f"加载文件: {file_path}")
-        self.file_path = file_path
+    def load_file(self):
         new_items = []
-        try:
-            with open(file_path, 'r', encoding='utf-8') as file:
-                self.lines = file.readlines()
-                for index,line in enumerate(self.lines):
-                    if re.search(self.start_pattern, line):
-                        line = line.strip()
-                        new_items.append(line)
-                        self.starts.append((line,index))
-        except Exception as e:
-            print(f"读取文件时出错: {e}")
-            new_items = ["错误加载文件"]
+        for index,line in enumerate(self.lines):
+            if re.search(self.start_pattern, line):
+                line = line.strip()
+                new_items.append(line)
+                self.starts.append((line,index))
 
         # 更新下拉框内容
         self.combo1.clear()
@@ -414,6 +419,7 @@ class LogAnalyzer(QWidget):
         for i in self.starts:
             if i[0] == currentItem:
                 start_p = i[1]
+                break
         self.orders = []
         for index,line in enumerate(lines):
             if index<=start_p:
@@ -457,7 +463,7 @@ class MainWindow(QMainWindow):
         # 创建 MapApp 和 LogAnalyzer 实例
         map_widget = MapApp()
         log_analyzer = LogAnalyzer()
-
+        
         log_analyzer.slider.valueChanged.connect(lambda:map_widget.add_moving_line_to_scene(log_analyzer.paths[log_analyzer.slider.value()][0]))
         # 创建垂直布局来显示两个部件
         layout = QVBoxLayout()
