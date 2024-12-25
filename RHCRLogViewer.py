@@ -6,6 +6,10 @@ from PyQt5.QtWidgets import QApplication, QGraphicsScene, QGraphicsView, QGraphi
 from PyQt5.QtGui import QDragEnterEvent, QDropEvent,QPen, QColor,QBrush,QFont,QKeyEvent,QMouseEvent,QPainter,QPainterPath
 import json as js
 import re
+import random
+
+class SyncAgentItem(QGraphicsEllipseItem):
+    pass
 
 class MapPointItem(QGraphicsEllipseItem):
     pass
@@ -110,7 +114,7 @@ class MapView(QGraphicsView):
         调整所有图形项的大小，确保它们在滚轮缩放时变大或变小。
         """
         for item in self.scene().items():
-            if isinstance(item, MapPointItem):
+            if isinstance(item, MapPointItem) or isinstance(item, SyncAgentItem):
                 # 获取当前矩形尺寸并根据缩放因子调整
                 rect = item.rect()
                 center = rect.center()
@@ -149,6 +153,13 @@ class MapApp(QWidget):
         # 记录数据
         self.cur_area = ""
         self.points_to_xy = {}
+        
+        self.colors = []
+        for _ in range(1000):
+            r = random.randint(0, 255)
+            g = random.randint(0, 255)
+            b = random.randint(0, 255)
+            self.colors.append(QColor(r,g,b))
 
     # 更新显示地图
     def update_map(self, area_name):
@@ -243,7 +254,45 @@ class MapApp(QWidget):
             advanced_points = area["logicalMap"]["advancedPoints"]
             for point in advanced_points:
                 self.points_to_xy[int(point["instanceName"][2:])] = (100*point["pos"]["x"],-100*point["pos"]["y"])
-
+                
+    def add_agent_posion(self,sync_infos):
+        for item in self.scene.items():
+            if isinstance(item,SyncAgentItem):
+                self.scene.removeItem(item)
+        pattern = r"sent_path:([0-9->]+) target:([0-9]+) isfinal:(\w+) shape_id:([0-9,]+)"
+        
+        for i,sync_info in enumerate(sync_infos):
+            info = re.search(pattern,sync_info)
+            sent_path = info.group(1)
+            target = info.group(2)
+            isfinal = info.group(3)
+            shape_id = info.group(4)
+            sent_path = sent_path.split('->')[1:]
+            for pi,point in enumerate(sent_path):
+                xy = self.points_to_xy.get(int(point))
+                if(xy !=None):
+                    x,y = xy
+                    width = 5
+                    if pi == len(sent_path)-1:
+                        width = 7
+                    ellipse_item = SyncAgentItem(x-width, y-width, width*2, width*2)
+                    pen = ellipse_item.pen()
+                    pen.setColor(self.colors[i])
+                    pen.setWidth(5)
+                    ellipse_item.setPen(pen)
+                    ellipse_item.setBrush(QBrush(self.colors[i]))
+                    self.scene.addItem(ellipse_item)
+        scale_factor =  1/self.view.transform().m11()
+        for item in self.scene.items():
+            if isinstance(item, SyncAgentItem):
+                # 获取当前矩形尺寸并根据缩放因子调整
+                rect = item.rect()
+                center = rect.center()
+                rect.setHeight(rect.height()*scale_factor)
+                rect.setWidth(rect.width()*scale_factor)
+                rect.moveCenter(center)
+                item.setRect(rect)  # 设置新的大小
+            
     def add_moving_line_to_scene(self, points_string):
         # 去除之前的线
         for item in self.scene.items():
@@ -314,17 +363,25 @@ class LogAnalyzer(QWidget):
         self.slider.setRange(0, 0)
         self.slider.setValue(0)  # 默认值
 
+        # 初始化拖动条
+        self.slider2 = QSlider(Qt.Horizontal, self)
+        self.slider2.setRange(0, 0)
+        self.slider2.setValue(0)  # 默认值
+
         # 连接信号
         self.combo1.currentIndexChanged.connect(lambda:self.update_combo2(self.combo1.currentText()))
         self.combo2.currentIndexChanged.connect(lambda:self.update_combo3(self.combo2.currentText()))
         self.combo3.currentIndexChanged.connect(lambda:self.update_slider_range(self.combo3.currentText()))
         self.slider.valueChanged.connect(self.update_label)
+        self.slider2.valueChanged.connect(lambda:self.slider2ToCombo1(self.slider2.value()))
+        self.combo1.currentIndexChanged.connect(lambda:self.combo1ToSlider2(self.combo1.currentIndex(),self.combo1.count()))
 
         # 布局管理
         self.layout.addWidget(self.combo1)
         self.layout.addWidget(self.combo2)
         self.layout.addWidget(self.combo3)
         self.layout.addWidget(self.slider)
+        self.layout.addWidget(self.slider2)
         self.layout.addWidget(self.value_label)
 
         # 设置主窗口的布局
@@ -336,11 +393,21 @@ class LogAnalyzer(QWidget):
         self.planns = []
         self.paths = []
         self.lines = []
-
+        self.sync_infos = []
+        
         # 字符串匹配
         self.start_pattern = r"RHCR START!"
         self.order_pattern = r"order info\(\d+\): os:\d+ cs:\d+current:"
         self.planning_pattern = r"^(?=.*planning:)(?=.*->).*$"
+        self.sync_info_pattern = r"sent_path:([0-9->]+) target:([0-9]+) isfinal:(\w+) shape_id:([0-9,]+)"
+
+    def slider2ToCombo1(self,value):
+        self.combo1.setCurrentIndex(value)
+        
+    def combo1ToSlider2(self,index,range):
+        self.slider2.setRange(0,range)
+        self.slider2.setValue(index)
+        
 
     def update_slider_range(self,currentItem):
         if currentItem == "":
@@ -397,6 +464,7 @@ class LogAnalyzer(QWidget):
                             self.lines+=file.readlines()
                     except Exception as e:
                         print(f"读取文件时出错: {e}")
+            self.lines = [line.replace(',', '') for line in self.lines]
             self.load_file()
 
     def load_file(self):
@@ -421,10 +489,16 @@ class LogAnalyzer(QWidget):
                 start_p = i[1]
                 break
         self.orders = []
+        self.sync_infos = []
+        sync_infos_recored = False
         for index,line in enumerate(lines):
             if index<=start_p:
                 continue
+            if re.search(self.sync_info_pattern,line) and not sync_infos_recored:
+                line = line.strip()
+                self.sync_infos.append(line)
             if re.search(self.order_pattern,line):
+                sync_infos_recored = True
                 line = line.strip()
                 new_items.append(line)
                 self.orders.append((line,index))
@@ -465,6 +539,7 @@ class MainWindow(QMainWindow):
         log_analyzer = LogAnalyzer()
         
         log_analyzer.slider.valueChanged.connect(lambda:map_widget.add_moving_line_to_scene(log_analyzer.paths[log_analyzer.slider.value()][0]))
+        log_analyzer.combo1.currentIndexChanged.connect(lambda:map_widget.add_agent_posion(log_analyzer.sync_infos))
         # 创建垂直布局来显示两个部件
         layout = QVBoxLayout()
 
