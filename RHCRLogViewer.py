@@ -210,7 +210,7 @@ class MapApp(QWidget):
                     end = QPointF(line["endPos"]["pos"]["x"],line["endPos"]["pos"]["y"])
                     line_item = MapLineItem(100*start.x(),-100*start.y(),100*end.x(),-100*end.y())
                     self.scene.addItem(line_item)
-                if line["className"] == "DegenerateBezier":
+                if line["className"] == "DegenerateBezier" or line["className"] == "BezierPath":
                     start = QPointF(100*line["startPos"]["pos"]["x"],-100*line["startPos"]["pos"]["y"])
                     end = QPointF(100*line["endPos"]["pos"]["x"],-100*line["endPos"]["pos"]["y"])
                     con1 = QPointF(100*line["controlPos1"]["x"],-100*line["controlPos1"]["y"])
